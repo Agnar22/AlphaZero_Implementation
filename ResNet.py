@@ -40,7 +40,7 @@ class ResNet:
         return act2
 
     @staticmethod
-    def build(height, width, depth, num_filters, reg=0.01, bnEps=2e-5, bnMom=0.9, num_res_blocks=19):
+    def build(height, width, depth, num_filters, policy_output_dim, reg=0.01, bnEps=2e-5, bnMom=0.9, num_res_blocks=19):
         # initialize the input shape to be "channels last" and the
         # channels dimension itself
         inputShape = (height, width, depth)
@@ -69,7 +69,7 @@ class ResNet:
         x_pol = BatchNormalization(axis=chan_dim, epsilon=bnEps, momentum=bnMom)(x_pol)
         x_pol = Activation("relu")(x_pol)
         x_pol = Flatten()(x_pol)
-        x_pol = Dense(64, activation="softmax")(x_pol)
+        x_pol = Dense(policy_output_dim, activation="softmax")(x_pol)
 
         # Value head
         x_val = Conv2D(1, (1, 1), strides=(1, 1), padding="same", use_bias=False, kernel_regularizer=l2(reg))(x)
