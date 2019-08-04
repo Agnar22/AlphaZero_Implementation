@@ -65,10 +65,10 @@ class Othello:
         return mat
 
     def get_moves(self):
-        if self.calculated_moves or self.get_states()[0] in self.position_moves:
-            self.legal_moves = self.position_moves[self.get_states()[0]]
+        if self.calculated_moves or self.get_state() in self.position_moves:
+            self.legal_moves = self.position_moves[self.get_state()]
             self.calculated_moves = True
-            return self.position_moves[self.get_states()[0]]
+            return self.position_moves[self.get_state()]
         moves = []
         for row in range(8):
             for col in range(8):
@@ -76,7 +76,7 @@ class Othello:
                     moves.append([row, col])
         self.legal_moves = moves
         self.calculated_moves = True
-        self.position_moves[self.get_states()[0]] = moves
+        self.position_moves[self.get_state()] = moves
         return self.legal_moves
 
     # Checking if a square is possible move
@@ -132,7 +132,7 @@ class Othello:
         self.calculated_moves = False
         self.turn = (self.turn + 1) % 2
         self.get_moves()
-        print(self.turn, self.get_moves())
+        # print(self.turn, self.get_moves())
 
         # If the opponent can not move
         if len(self.legal_moves) == 0:
@@ -221,9 +221,9 @@ class Othello:
             return 2 if self.score[0] > self.score[1] else 0
         return 2 if self.score[0] < self.score[1] else 0
 
-    def get_states(self):
+    def get_state(self):
         # return [str(self.board)]
-        return [str(self.history)+str(self.turn)]
+        return str(self.history)+str(self.turn)
 
 
 # game = Othello()

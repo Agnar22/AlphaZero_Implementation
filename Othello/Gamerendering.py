@@ -49,4 +49,4 @@ class OthelloRendering:
         pos = pygame.mouse.get_pos()
         self.game.execute_move([(pos[0] - 2) // 50, (pos[1] - 2) // 50])
 
-rendering = OthelloRendering(Gamelogic.Othello())
+# rendering = OthelloRendering(Gamelogic.Othello())
