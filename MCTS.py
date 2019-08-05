@@ -6,6 +6,9 @@ import numpy as np
 from TicTacToe import Gamelogic
 
 
+# OBS: when the game is over it the algorithm expects that it is none to move
+
+
 class MCTS:
     def __init__(self):
         # #######DICTIONARIES#######
@@ -14,8 +17,8 @@ class MCTS:
         self.state_visits = {}  # total visits for each state
 
         # #######PARAMETERS#######
-        self.c_puct = 4  # Used for exploration (larger=>less long term exploration)
-        self.c_init = 1  # Used for exploration (larger=>more exploration)
+        self.c_puct = 2  # Used for exploration (larger=>less long term exploration)
+        self.c_init = 3  # Used for exploration (larger=>more exploration)
         self.dirichlet_noise = True  # Add dirichlet noise to the prior probabilities of the root
         self.alpha = 0.3  # Dirichlet noise variable
 
@@ -88,20 +91,24 @@ class MCTS:
 
         # The search traversed an internal node
         if action is not None:
-            backp_value = self.search()
+            backp_value, outcome, finished = self.search()
             now = time.time()
             # Negating the back-propagated value if it is the opponent to move
             to_move = self.game.get_turn()
             self.game.undo_move()
             moved = self.game.get_turn()
-
-            if to_move is not moved:
+            if finished:
+                backp_value = outcome[moved]
+            elif to_move is not moved:
                 backp_value = -backp_value
 
             # Backward pass
             self._backward_pass(state, str(state) + '-' + str(action), backp_value)
             self.time_2 += time.time() - now
-            return backp_value
+            return backp_value, outcome, finished
+
+        if self.game.is_final():
+            return None, self.game.get_outcome(), True
 
         # Evaluation
         now = time.time()
@@ -111,7 +118,7 @@ class MCTS:
         self._expansion(state, priors)
         self.tree_children[len(self.game.history)] += 1
         self.time_3 += time.time() - now
-        return value
+        return value, [], False
 
     # Selecting the path from the root node to the leaf node and returning the new state and the last action executed
     def _selection(self):
@@ -158,29 +165,34 @@ class MCTS:
         return Q + U
 
     # Evaluate a state using the evaluation algorithm
-    def _evaluate(self, state):
+    def _evaluate(self, state, epsilon=0.000001):
         # return 0, {str(act): 1 / len(self.game.get_moves()) for num, act in enumerate(self.game.get_moves())}
         # return random.uniform(-1, 1), {str(act): random.random() for num, act in enumerate(self.game.get_moves())}
+
         state = state.reshape(self.NN_input_dim)
-        prior_prob = self.eval.predict(state)
-        # print(self.game.get_moves())
-        # print([prior_prob[0][0, pos[0] * 8 + pos[1]] for pos in self.game.get_moves()])
-        # TODO: must be generalized:
-        # probs=output from NN * legal moves from game
-        # normalize probs
-        # return movelist from probs - function
-        # remove zeros
-        # add noise and re-normalize if necessary
-        # create dict
-        prior_porb_norm = np.array([prior_prob[0][0, pos[0] * 8 + pos[1]] for pos in self.game.get_moves()])
-        prior_porb_norm = prior_porb_norm / sum(prior_porb_norm)
-        prior_porb_norm = prior_porb_norm.reshape(prior_porb_norm.shape[0])
+        policy, value = self.eval.predict(state)
+        policy = policy.flatten()
+        policy = policy + np.array([epsilon / self.policy_output_dim] * self.policy_output_dim)
+
+        legal_moves = np.array(self.game.get_legal_NN_output())
+        num_legal_moves = np.sum(legal_moves)
+
+        policy = policy * legal_moves
+
+        # if np.sum(policy) == 0:
+        #     print("redone")
+        #     policy = np.array([1 / num_legal_moves]) * legal_moves
+        policy_norm = policy / np.sum(policy)
+        outp = self.NN_output_to_moves_func(policy_norm)
+        policy_norm = policy_norm[policy_norm > 0]
 
         if len(self.state_visits) == 0 and self.dirichlet_noise:
-            noise = np.random.dirichlet(np.array([self.alpha for _ in range(len(self.game.get_moves()))]), (1))
+            noise = np.random.dirichlet(np.array([self.alpha for _ in range(num_legal_moves)]), (1))
             noise = noise.reshape(noise.shape[1])
-            prior_porb_norm = (prior_porb_norm + noise) / 2
-        return 0, {str(act): prior_porb_norm[num] for num, act in enumerate(self.game.get_moves())}
+
+            return value, {str(act): (policy_norm[num] + noise[num]) / 2 for num, act in enumerate(outp)}
+        else:
+            return value, {str(act): policy_norm[num] for num, act in enumerate(outp)}
 
     # Initializing a new leaf node
     def _expansion(self, state, priors):
@@ -190,10 +202,11 @@ class MCTS:
         self.state_visits[state] = 0
 
         # Initializing each state action pair
-        for action in actions:
-            # print(str(action))
-            # print(str(state))
-            self.search_dict[str(state) + '-' + str(action)] = [0, 0, 0, priors[str(action)]]
+        try:
+            for action in actions:
+                self.search_dict[str(state) + '-' + str(action)] = [0, 0, 0, priors[str(action)]]
+        except:
+            print("123")
 
     # Updating a single node in the tree
     def _backward_pass(self, state, state_action, value):
@@ -203,8 +216,6 @@ class MCTS:
                                           (state_action_values[1] + value) / (state_action_values[0] + 1),
                                           state_action_values[3]]
         self.state_visits[state] = self.state_visits.get(state) + 1
-        # self.game.undo_move()
-
 
 # game = Gamelogic.TicTacToe()
 # tree = MCTS()

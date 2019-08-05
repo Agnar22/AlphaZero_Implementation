@@ -10,7 +10,7 @@ def store_list(game_name, history, epoch, outcome, id='', dir='Games'):
 
 
 # Storing moves from a game and the targets
-def store_game(game_name, history, v_targets, p_targets, epoch, outcome, id=''):
+def store_game(game_name, history, v_targets, p_targets, epoch, outcome, id='', prior_probs=None):
     game_epoch_root = 'Data/' + str(game_name) + '/Games'
     game_epoch_path = game_epoch_root + '/' + str(epoch)
     create_dir_if_not_exist(game_epoch_path, game_epoch_root)
@@ -23,6 +23,9 @@ def store_game(game_name, history, v_targets, p_targets, epoch, outcome, id=''):
     store_list(game_name, history, epoch, outcome, id=str(game_num) + id, dir='Games')
     store_list(game_name, v_targets, epoch, outcome, id=str(game_num) + 'v' + id, dir='Targets')
     store_list(game_name, p_targets, epoch, outcome, id=str(game_num) + 'p' + id, dir='Targets')
+    if prior_probs is not None:
+        store_list(game_name, prior_probs, epoch, outcome, id=str(game_num) + 'pri' + id, dir='Targets')
+
 
 
 # Creating a directory if it does not already exist

@@ -23,6 +23,9 @@ class TicTacToe:
 
     def get_moves(self):
         return [x for x in range(9) if self.board[x // 3, x % 3, 0] == self.board[x // 3, x % 3, 1] == 0]
+
+    def get_legal_NN_output(self):
+        return [1 if self.board[x // 3, x % 3, 0] == self.board[x // 3, x % 3, 1] == 0 else 0 for x in range(9)]
         # moves = []
         # for x in range(9):
         #     if self.board[x // 3, x % 3, 0] == self.board[x // 3, x % 3, 1] == 0:
@@ -93,10 +96,11 @@ class TicTacToe:
         return str(self.history)
 
     def get_turn(self):
-        return len(self.history) % 2
+        return len(self.history) % 2 if not self.is_final() else None
 
     def get_board(self):
         return self.board if len(self.history) % 2 == 0 else np.flip(self.board, -1)
+
 
     def print_board(self):
         for x in range(3):
