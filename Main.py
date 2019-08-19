@@ -3,11 +3,14 @@ import MCTS
 import time
 import numpy as np
 import Files
+import tensorflow as tf
 # from Othello import Gamerendering
 # from Othello import Gamelogic
 from TicTacToe import Gamelogic
 from TicTacToe import Config
-from keras.optimizers import Adam
+from keras.optimizers import SGD, Adam
+from keras.callbacks import TensorBoard
+from loss import softmax_cross_entropy_with_logits, softmax
 
 
 # Potential causes of not improving play:
@@ -21,17 +24,28 @@ from keras.optimizers import Adam
 #   => change hyper parameters and observe different behaviour
 #   => go through search line by line
 
+# Plan:
+#   => Train AlpaZero for TicTacToe
+#   => Take a pause from AlphaZero
+#   => Add temperature
+#   => Multiprocessing with Ray
+#   => Train AlphaZero for Othello or Four-in-a-row
 
-def train(game, config, num_sim=800, epochs=100, games_pr_epoch=1000):
+def setup(game, config):
+    tensorboard = TensorBoard(log_dir="logs/SGD_quad_lr=0.02_0.9_{}".format(time.time()), histogram_freq=0, write_graph=False,
+                              write_images=False, batch_size=3, write_grads=True)
     Files.create_directories(config.name)
 
     height, width, depth = game.get_board().shape
-    agent = ResNet.ResNet.build(height, width, depth, 64, config.policy_output_dim, num_res_blocks=2, reg=0.0001)
-    agent.compile(loss=['categorical_crossentropy', 'mean_squared_error'], optimizer=Adam(lr=0.05, epsilon=10E-8))
+    agent, agent1 = ResNet.ResNet.build(height, width, depth, 128, config.policy_output_dim, num_res_blocks=4,
+                                        reg=0.0001)
+    agent.compile(loss=[softmax_cross_entropy_with_logits, 'mean_squared_error'], optimizer=SGD(lr=0.001, momentum=0.9))
     print(agent.summary())
 
+
+
     tree = MCTS.MCTS()
-    tree.dirichlet_noise = False
+    tree.dirichlet_noise = True
     tree.NN_input_dim = config.board_dims
     tree.policy_output_dim = config.policy_output_dim
     tree.NN_output_to_moves_func = config.NN_output_to_moves
@@ -39,6 +53,16 @@ def train(game, config, num_sim=800, epochs=100, games_pr_epoch=1000):
     tree.number_to_move_func = config.number_to_move
     tree.set_evaluation(agent)
     tree.set_game(game)
+    return tree, agent, agent1, tensorboard
+
+# def loss_callback():
+
+
+
+def train(game, config, num_sim=800, epochs=100, games_pr_epoch=1000):
+    tree, agent, agent1, tensorboard = setup(game, config)
+    # file_writer = tf.summary.create_file_writer("logs/lr=0.02_")
+    # file_writer.set_as_default()
 
     for epoch in range(epochs):
         for game_num in range(games_pr_epoch):
@@ -62,17 +86,28 @@ def train(game, config, num_sim=800, epochs=100, games_pr_epoch=1000):
             # game.execute_move(3)
             # game.execute_move(6)
 
+            # game.execute_move(0)
+            # game.execute_move(4)
+            # game.execute_move(8)
+            # game.execute_move(2)
+            # game.execute_move(6)
+            # game.execute_move(3)
+            # game.execute_move(7)
+
             while not game.is_final():
                 tree.search_series(num_sim)
 
-                positions.append(game.get_board())
+                positions.append(np.array(game.get_board()))
 
                 state = game.get_state()
+                print("temp_prob", tree.get_temperature_probabilities(state))
+                # print("temp_move", tree.get_temperature_move(state))
                 # print(tree.get_prior_probabilities(game.get_state()))
-                prior_probs.append(tree.get_prior_probabilities(game.get_state()))
+                print(tree.get_posterior_probabilities(state))
+                prior_probs.append(tree.get_prior_probabilities(state))
                 most_searched_move = tree.get_most_seached_move(state)
                 history.append(most_searched_move)
-                policy_targets.append(tree.get_posterior_probabilities(state))
+                policy_targets.append(np.array(tree.get_posterior_probabilities(state)))
                 player_moved_list.append(game.get_turn())
 
                 game.execute_move(most_searched_move)
@@ -80,21 +115,30 @@ def train(game, config, num_sim=800, epochs=100, games_pr_epoch=1000):
 
             game_outcome = game.get_outcome()
             value_targets = [game_outcome[x] for x in player_moved_list]
-            print(policy_targets)
+            # print(policy_targets)
 
-            agent.fit(
+            hist = agent.fit(
                 x=np.array(positions),
-                y=[np.array(policy_targets), np.array([[game_outcome[x]] for x in player_moved_list])],
-                batch_size=len(positions), epochs=1
+                y=[np.array(policy_targets), np.array(value_targets)],
+                batch_size=len(positions), epochs=2, callbacks=[tensorboard]
             )
-            # print(agent.predict(np.array(positions)))
+            # print(policy_targets)
+            p = agent.predict(np.array(positions))
+            for x in range(len(policy_targets)):
+                print("x:", x)
+                print(policy_targets[x], value_targets[x])
+                print(softmax(policy_targets[x], p[0][x]), p[1][x])
+                # print(p[x])
+
+            print("hist", hist)
             Files.store_game(config.name, history, value_targets, policy_targets, epoch, game_outcome,
                              prior_probs=prior_probs)
+            # return -1
 
         Files.save_model(agent, config.name, epoch)
 
 
-train(Gamelogic.TicTacToe(), Config, num_sim=800, epochs=100, games_pr_epoch=1000)
+train(Gamelogic.TicTacToe(), Config, num_sim=101, epochs=100, games_pr_epoch=1000)
 
 # # Setting up game, ResNet and MCTS
 # game = Gamelogic.TicTacToe()

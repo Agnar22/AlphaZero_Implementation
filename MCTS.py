@@ -4,6 +4,8 @@ import random
 import numpy as np
 # from Othello import Gamelogic
 from TicTacToe import Gamelogic
+import loss
+import collections
 
 
 # OBS: when the game is over it the algorithm expects that it is none to move
@@ -19,8 +21,12 @@ class MCTS:
         # #######PARAMETERS#######
         self.c_puct = 2  # Used for exploration (larger=>less long term exploration)
         self.c_init = 3  # Used for exploration (larger=>more exploration)
+
         self.dirichlet_noise = True  # Add dirichlet noise to the prior probabilities of the root
-        self.alpha = 0.3  # Dirichlet noise variable
+        self.alpha = 0.9  # Dirichlet noise variable
+        self.epsilon = 0.25  # The amount of dirichlet noise that is added
+
+        self.temperature = 0.5
 
         # #######I/O shape for eval.#######
         self.NN_input_dim = None
@@ -70,8 +76,23 @@ class MCTS:
         prob = np.zeros(self.policy_output_dim)
         total_visits = self.state_visits[state]
         for action in self.pos_move_dict[state]:
-            prob[self.move_to_number_func(action)] = self.search_dict[str(state) + '-' + str(action)][0] / total_visits
+            prob[self.move_to_number_func(action)] = self.search_dict[str(state) + '-' + str(action)][0] / (
+                    total_visits - 1)
         return prob
+
+    # Returning the temperature probabilities calculated from the number of searches for each action
+    def get_temperature_probabilities(self, state):
+        prob = np.zeros(self.policy_output_dim)
+        for action in self.pos_move_dict[state]:
+            prob[self.move_to_number_func(action)] = self.search_dict[str(state) + '-' + str(action)][0]
+        temp = np.power(prob, 1 / self.temperature)
+        return temp / temp.sum()
+
+    # Returning a random move proportional to the temperature probabilities
+    def get_temperature_move(self, state):
+        temp_probs = self.get_temperature_probabilities(state)
+        temp_num = np.random.choice(temp_probs.shape[0], 1, p=temp_probs)[0]
+        return self.number_to_move_func(temp_num)
 
     def get_most_seached_move(self, state):
         probs = self.get_posterior_probabilities(state)
@@ -164,7 +185,7 @@ class MCTS:
         U = exploration * args[3] * math.sqrt(parent_visits) / (1 + args[0])
         return Q + U
 
-    # Evaluate a state using the evaluation algorithm
+    # Evaluate a state using the evaluation algorithm and returning prior policy probabilities and value
     def _evaluate(self, state, epsilon=0.000001):
         # return 0, {str(act): 1 / len(self.game.get_moves()) for num, act in enumerate(self.game.get_moves())}
         # return random.uniform(-1, 1), {str(act): random.random() for num, act in enumerate(self.game.get_moves())}
@@ -172,17 +193,13 @@ class MCTS:
         state = state.reshape(self.NN_input_dim)
         policy, value = self.eval.predict(state)
         policy = policy.flatten()
-        policy = policy + np.array([epsilon / self.policy_output_dim] * self.policy_output_dim)
 
         legal_moves = np.array(self.game.get_legal_NN_output())
         num_legal_moves = np.sum(legal_moves)
 
-        policy = policy * legal_moves
+        policy_norm = loss.softmax(legal_moves, policy)
 
-        # if np.sum(policy) == 0:
-        #     print("redone")
-        #     policy = np.array([1 / num_legal_moves]) * legal_moves
-        policy_norm = policy / np.sum(policy)
+        policy_norm = (policy_norm + epsilon) * legal_moves
         outp = self.NN_output_to_moves_func(policy_norm)
         policy_norm = policy_norm[policy_norm > 0]
 
@@ -190,7 +207,8 @@ class MCTS:
             noise = np.random.dirichlet(np.array([self.alpha for _ in range(num_legal_moves)]), (1))
             noise = noise.reshape(noise.shape[1])
 
-            return value, {str(act): (policy_norm[num] + noise[num]) / 2 for num, act in enumerate(outp)}
+            return value, {str(act): (1 - self.epsilon) * (policy_norm[num] + self.epsilon * noise[num]) for num, act in
+                           enumerate(outp)}
         else:
             return value, {str(act): policy_norm[num] for num, act in enumerate(outp)}
 
@@ -199,7 +217,7 @@ class MCTS:
         # Finding all actions
         actions = self.game.get_moves()
         self.pos_move_dict[state] = actions
-        self.state_visits[state] = 0
+        self.state_visits[state] = 1
 
         # Initializing each state action pair
         try:
