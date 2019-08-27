@@ -159,7 +159,6 @@ class MCTS:
         # max_value=max(values)
         # best_action=self.pos_move_dict.get(state)[values.index(max_value)]
 
-        now = time.time()
 
         best_action = ''
         best_value = None
@@ -172,6 +171,7 @@ class MCTS:
                 best_value = state_action_value
                 best_action = action
 
+        now = time.time()
         # Executing action and appending state-action pair to path
         self.game.execute_move(best_action)
         self.time_4 += time.time() - now
@@ -187,7 +187,7 @@ class MCTS:
 
     # Evaluate a state using the evaluation algorithm and returning prior policy probabilities and value
     def _evaluate(self, state, epsilon=0.000001):
-        # return 0, {str(act): 1 / len(self.game.get_moves()) for num, act in enumerate(self.game.get_moves())}
+        return 0, {str(act): 1 / len(self.game.get_moves()) for num, act in enumerate(self.game.get_moves())}
         # return random.uniform(-1, 1), {str(act): random.random() for num, act in enumerate(self.game.get_moves())}
 
         state = state.reshape(self.NN_input_dim)
@@ -235,25 +235,25 @@ class MCTS:
                                           state_action_values[3]]
         self.state_visits[state] = self.state_visits.get(state) + 1
 
-# game = Gamelogic.TicTacToe()
-# tree = MCTS()
-# tree.set_game(game)
-#
-# now = time.time()
-# for _ in range(8000):
-#     # print(tree.tree_children)
-#     tree.search()
-# print('tot:', time.time() - now)
-# print(tree.time_1, tree.time_2, tree.time_3, tree.time_4)
+game = Gamelogic.TicTacToe()
+tree = MCTS()
+tree.set_game(game)
 
-# def stringify(arr):
-#     a = [str(arr)]
-#     return a[0]
-#
-#
-# arr = np.arange(18).reshape(1, 3, 3, 2)
-# now = time.time()
-# for _ in range(8000):
-#     [stringify(np.flip(arr, -1))]
-#
-# print(time.time() - now)
+now = time.time()
+for _ in range(6000):
+    # print(tree.tree_children)
+    tree.search()
+print('tot:', time.time() - now)
+print(tree.time_1, tree.time_2, tree.time_3, tree.time_4)
+
+def stringify(arr):
+    a = [str(arr)]
+    return a[0]
+
+
+arr = np.arange(18).reshape(1, 3, 3, 2)
+now = time.time()
+for _ in range(8000):
+    [stringify(np.flip(arr, -1))]
+
+print(time.time() - now)

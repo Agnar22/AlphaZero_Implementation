@@ -25,24 +25,25 @@ from loss import softmax_cross_entropy_with_logits, softmax
 #   => go through search line by line
 
 # Plan:
-#   => Train AlpaZero for TicTacToe
+# [X]=> Train AlpaZero for TicTacToe
 #   => Take a pause from AlphaZero
-#   => Add temperature
+# [X]=> Add temperature
 #   => Multiprocessing with Ray
+#   => Cython
 #   => Train AlphaZero for Othello or Four-in-a-row
 
 def setup(game, config):
-    tensorboard = TensorBoard(log_dir="logs/SGD_quad_lr=0.02_0.9_{}".format(time.time()), histogram_freq=0, write_graph=False,
+    tensorboard = TensorBoard(log_dir="logs/SGD_quad_lr=0.02_0.9_{}".format(time.time()), histogram_freq=0,
+                              write_graph=False,
                               write_images=False, batch_size=3, write_grads=True)
     Files.create_directories(config.name)
 
     height, width, depth = game.get_board().shape
-    agent, agent1 = ResNet.ResNet.build(height, width, depth, 128, config.policy_output_dim, num_res_blocks=4,
+    agent, agent1 = ResNet.ResNet.build(height, width, depth, 128, config.policy_output_dim, num_res_blocks=5,
                                         reg=0.0001)
-    agent.compile(loss=[softmax_cross_entropy_with_logits, 'mean_squared_error'], optimizer=SGD(lr=0.001, momentum=0.9))
+    agent.compile(loss=[softmax_cross_entropy_with_logits, 'mean_squared_error'],
+                  optimizer=SGD(lr=0.0005, momentum=0.9))
     print(agent.summary())
-
-
 
     tree = MCTS.MCTS()
     tree.dirichlet_noise = True
@@ -55,8 +56,8 @@ def setup(game, config):
     tree.set_game(game)
     return tree, agent, agent1, tensorboard
 
-# def loss_callback():
 
+# def loss_callback():
 
 
 def train(game, config, num_sim=800, epochs=100, games_pr_epoch=1000):
@@ -95,17 +96,18 @@ def train(game, config, num_sim=800, epochs=100, games_pr_epoch=1000):
             # game.execute_move(7)
 
             while not game.is_final():
+                now = time.time()
                 tree.search_series(num_sim)
-
+                print("time", time.time() - now)
                 positions.append(np.array(game.get_board()))
 
                 state = game.get_state()
-                print("temp_prob", tree.get_temperature_probabilities(state))
+                # print("temp_prob", tree.get_temperature_probabilities(state))
                 # print("temp_move", tree.get_temperature_move(state))
                 # print(tree.get_prior_probabilities(game.get_state()))
-                print(tree.get_posterior_probabilities(state))
+                # print(tree.get_posterior_probabilities(state))
                 prior_probs.append(tree.get_prior_probabilities(state))
-                most_searched_move = tree.get_most_seached_move(state)
+                most_searched_move = tree.get_temperature_move(state)
                 history.append(most_searched_move)
                 policy_targets.append(np.array(tree.get_posterior_probabilities(state)))
                 player_moved_list.append(game.get_turn())
@@ -138,7 +140,7 @@ def train(game, config, num_sim=800, epochs=100, games_pr_epoch=1000):
         Files.save_model(agent, config.name, epoch)
 
 
-train(Gamelogic.TicTacToe(), Config, num_sim=101, epochs=100, games_pr_epoch=1000)
+train(Gamelogic.TicTacToe(), Config, num_sim=100, epochs=100, games_pr_epoch=1000)
 
 # # Setting up game, ResNet and MCTS
 # game = Gamelogic.TicTacToe()

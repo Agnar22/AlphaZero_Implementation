@@ -8,7 +8,10 @@ class OthelloRendering:
     def __init__(self, game):
         pygame.init()
         self.game = game
-        self.screen = pygame.display.set_mode([600, 600])
+        self.side_length = 50
+        self.line_th = 5
+        self.screen = pygame.display.set_mode(
+            [self.side_length * 8 + self.line_th, self.side_length * 8 + self.line_th])
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -25,17 +28,21 @@ class OthelloRendering:
     def _render_background(self):
         self.screen.fill([0, 109, 50])
         for x in range(9):
-            pygame.draw.line(self.screen, (0, 0, 0), [x * 50 + 2, 0], [x * 50 + 2, 403], 5)
-            pygame.draw.line(self.screen, (0, 0, 0), [0, x * 50 + 2], [403, x * 50 + 2], 5)
+            pygame.draw.line(self.screen, (0, 0, 0), [x * self.side_length + 2, 0], [x * self.side_length + 2, 403],
+                             self.line_th)
+            pygame.draw.line(self.screen, (0, 0, 0), [0, x * self.side_length + 2], [403, x * self.side_length + 2],
+                             self.line_th)
 
     def _render_pieces(self):
         board = self.game.get_board()
         for x in range(8):
             for y in range(8):
                 if board[x, y, 1] == 1:
-                    pygame.draw.circle(self.screen, (255, 255, 255), [28 + 50 * x, 28 + 50 * y], 20)
+                    pygame.draw.circle(self.screen, (255, 255, 255),
+                                       [28 + self.side_length * x, 28 + self.side_length * y], 20)
                 elif board[x, y, 0] == 1:
-                    pygame.draw.circle(self.screen, (0, 0, 0), [28 + 50 * x, 28 + 50 * y], 20)
+                    pygame.draw.circle(self.screen, (0, 0, 0), [28 + self.side_length * x, 28 + self.side_length * y],
+                                       20)
 
     def _render_possible_moves(self):
         possible_moves = self.game.get_moves()
@@ -49,4 +56,5 @@ class OthelloRendering:
         pos = pygame.mouse.get_pos()
         self.game.execute_move([(pos[0] - 2) // 50, (pos[1] - 2) // 50])
 
-# rendering = OthelloRendering(Gamelogic.Othello())
+
+rendering = OthelloRendering(Gamelogic.Othello())
