@@ -1,5 +1,4 @@
 # AlphaZero
-_Coming soon_
 
 ## Installation
 Clone the repository
@@ -20,10 +19,10 @@ python3 Main.py
 ```
 
 ## Motivation
-_Coming soon_
+This project was created to get greater insight into the AlphaZero algorithm, which (in my opinion) is the coolest reinforcement learning algorithm. 
 
 ## Results
-_Coming soon_
+This project served as a basis for the [AlphaZero project](https://github.com/CogitoNTNU/AlphaZero) that I lead the fall of 2019.
 
 ## Other resources
 * The [AlphaZero-](https://deepmind.com/documents/260/alphazero_preprint.pdf "AlphaZero paper by D. Silver et al.") and [AphaGo Zero paper](https://deepmind.com/documents/119/agz_unformatted_nature.pdf "AlphaGo Zero paper by D. Silver et al.") are essential to read to achieve a thorough understanding of the algorithm. 
